@@ -1,6 +1,9 @@
 %load /home/cassio/work/workspace/subspacestream/subspace_stream.mat
 load 'C:/Users/Cássio/work/workspace/subspacestream/subspace_stream.mat'
-Xsub = X(1:1000,:); supsub = sup(1:1000);
+Xsub = X(2000:3000,:); supsub = sup(1:1000);
+% plotmatrix(Xsub);
+% return
 tic
-p3c(Xsub, supsub);
+assigns = p3c(Xsub, supsub);
 toc
+gscatter(Xsub(:,1), Xsub(:,3), assigns);

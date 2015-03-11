@@ -1,19 +1,83 @@
 
 % p3c function
-function p3c(X, sup)
-    % identify relevant sections in attributes
+function assigns = p3c(X, sup)
+    % step 1 - identify relevant sections in attributes
     S = findSections(X);
+    % step 2 - find p-signatures with p = 2
+    [P, A] = findPsignatures(X, S);
+    % step 3 - make clusters:
+    assigns = makeClusters(X, P, A);
+end
+
+function assigns = makeClusters(X, P, A)
+    [N, ~] = size(X);
+    assigns = zeros(N,1);
+    for i = 1:size(A,1)
+        ai = A(i,1); aj = A(i,2);
+        pi = (X(:,ai) >= P(i,1)) & (X(:,ai) <= P(i,2));
+        pj = (X(:,aj) >= P(i,3)) & (X(:,aj) <= P(i,4));
+        pmix = find(pi & pj);
+        assigns(pmix) = i;
+    end
+end
+
+% find p-signatures with p = 2
+% X - data set 
+% S - map from attributes to sections
+% P - p-signatures matrix
+% A - p-signatures attributes matrix
+function [P, A] = findPsignatures(X, S)
+    d = size(X, 2); %dimensionality
+    P = zeros(d * d * 10, 4); % [lower_1 upper_1 lower_2 upper_2 ; ...]
+    A = zeros(d * d * 10, 2); % [att_1 att_2 ; ...]
+    nused = 0; % number of used combinations
+    threshold = 1e-20; % threshold for poisson acceptance
+    
+    for i = 1:(d - 1)
+        for j = (i+1):d
+            maxJ = max(X(:,j)); minJ = min(X(:,j));
+            totalWidth = maxJ - minJ;
+            % test the combinations of sections from att_i and att_j:
+            Si = S(i);
+            Sj = S(j);
+            Nsi = size(Si,1); Nsj = size(Sj,1);  
+            for k = 1:Nsi
+                Sik = Si(k,:);
+                psik = (X(:,i) >= Sik(1)) & (X(:,i) <= Sik(2));
+                SuppS = sum(psik); % support of S
+                for l = 1:Nsj
+                    % check the combination S_ik with Sjl
+                    Sjl = Sj(l,:);
+                    psjl =  (X(:,j) >= Sjl(1)) & (X(:,j) <= Sjl(2));
+                    ObsS = sum(psik & psjl); % observed support of R = S U S'
+                    width = (Sjl(2) - Sjl(1)) / totalWidth; % width of S'
+                    ESupp = SuppS * width; % expected support of R = (S U S') / S
+                    pd = makedist('Poisson', 'lambda', ESupp);
+                    prob = pdf(pd, ObsS);
+                    if ObsS > ESupp && prob < threshold
+                        % found a cluster core
+                        nused = nused + 1;
+                        P(nused, 1:2) = Sik;
+                        P(nused, 3:4) = Sjl;
+                        A(nused,1) = i;
+                        A(nused,2) = j;
+                    end
+                end
+            end
+        end
+    end
+    % remove extra spaces:
+    P = P(1:nused,:);
+    A = A(1:nused,:);
 end
 
 function S = findSections(X)
-    [N, d] = size(X);
+    d = size(X, 2);
     S = containers.Map('KeyType', 'int64', 'ValueType', 'any');
     
     for i = 1:d
         S(i) = analyzeAttribute(X(:,i));
     end
-
-    %disp('cluster cores phase')
 end
 
 % analyze attribute y
