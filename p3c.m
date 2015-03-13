@@ -12,12 +12,24 @@ end
 function assigns = makeClusters(X, P, A)
     [N, ~] = size(X);
     assigns = zeros(N,1);
+    MINPTS = 10;
+    K = 0;
+    
     for i = 1:size(A,1)
         ai = A(i,1); aj = A(i,2);
         pi = (X(:,ai) >= P(i,1)) & (X(:,ai) <= P(i,2));
         pj = (X(:,aj) >= P(i,3)) & (X(:,aj) <= P(i,4));
         pmix = find(pi & pj);
-        assigns(pmix) = i;
+        % now use dbscan on pmix to separate any clusters that might
+        % have been erroneously merged
+        Xsub = X(pmix, [ai aj]);
+        Eps = epsestimate(Xsub, MINPTS);
+        [class, ~] = dbscan(Xsub, MINPTS, Eps);
+        class(class == -1) = 0; % noise is 0 to me
+        idx = find(class ~= -1);
+        class(idx) = class(idx) + K;
+        K = max(class);
+        assigns(pmix) = class;
     end
 end
 
