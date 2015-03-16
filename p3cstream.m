@@ -26,7 +26,7 @@ function Q = p3cstream(X, sup, wsize, K)
     j = 1;
     for i = 1:wsize:N
         slice = i:(i+wsize-1);
-        Q(j) = p3c(X(slice,:), sup(slice), 'on', K);
+        Q(j) = p3c(X(slice,:), sup(slice), 'off', K);
         fprintf('Got Jaccard = %.2f for window [%d:%d/%d]\n', ...
             Q(j), i, i + wsize - 1, N);
         j = j + 1;

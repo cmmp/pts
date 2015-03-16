@@ -23,6 +23,23 @@ function J = p3c(X, sup, topo, K)
     end
     % compute jaccard:
     J = jaccard(assigns, sup);
+    plotWindow(X, assigns);
+end
+
+function plotWindow(X, assigns)
+    subplot(2,3,1);
+    Xsub = X;
+    gscatter(Xsub(:,1),Xsub(:,2), assigns, [], [], [], 'on'); xlabel('1'); ylabel('2');
+    subplot(2,3,2);
+    gscatter(Xsub(:,1),Xsub(:,3), assigns, [], [], [], 'on'); xlabel('1'); ylabel('3');
+    subplot(2,3,3);
+    gscatter(Xsub(:,1),Xsub(:,4), assigns, [], [], [], 'on'); xlabel('1'); ylabel('4');
+    subplot(2,3,4);
+    gscatter(Xsub(:,2),Xsub(:,3), assigns, [], [], [], 'on'); xlabel('2'); ylabel('3');
+    subplot(2,3,5);
+    gscatter(Xsub(:,2),Xsub(:,4), assigns, [], [], [], 'on'); xlabel('2'); ylabel('4');
+    subplot(2,3,6);
+    gscatter(Xsub(:,3),Xsub(:,4), assigns, [], [], [], 'on'); xlabel('3'); ylabel('4');
 end
 
 function topoassigns = topoAnalysis(X, A, assigns, K)
@@ -116,7 +133,7 @@ function [P, A] = findPsignatures(X, S)
     P = zeros(d * d * 10, 4); % [lower_1 upper_1 lower_2 upper_2 ; ...]
     A = zeros(d * d * 10, 2); % [att_1 att_2 ; ...]
     nused = 0; % number of used combinations
-    threshold = 1e-20; % threshold for poisson acceptance
+    threshold = 1e-12; % threshold for poisson acceptance
     
     for i = 1:(d - 1)
         for j = (i+1):d
