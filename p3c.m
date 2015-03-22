@@ -61,9 +61,9 @@ function topoassigns = topoAnalysis(X, A, assigns, K)
     % constants:
     
 	% Constant for topological analysis, maximum dimension */
-	MAX_D = 2;
+	MAX_D = 3;
 	% Ratio for selection of landmarks -> 1 landmark : ratio points */
-	RATIO = 15;
+	RATIO = 10;
 	% Number of divisions for filtration analysis */
 	DIVISIONS = 1000;
 
@@ -76,6 +76,7 @@ function topoassigns = topoAnalysis(X, A, assigns, K)
         pts = find(assigns == i);
         npts = length(pts);
         if npts <= 1
+            KMX(i,:) = -10;
             continue;
         end
         
@@ -95,11 +96,15 @@ function topoassigns = topoAnalysis(X, A, assigns, K)
         lt.finalizeStream();
         persistence = edu.stanford.math.plex4.api.Plex4.getModularSimplicialAlgorithm(MAX_D, 2);
         bc = persistence.computeIntervals(lt);
-        KMX(i,:) = bc.getBettiSequence();
+        nd = length(bc.getBettiSequence());
+        KMX(i,1:nd) = bc.getBettiSequence();
     end
     
-   KMX = KMX(:,2:end); % ignore the number of 0-dimensional connected components
+    if any(KMX(:,1) == -10) % we have non-significant clusters
+        K = K + 1; 
+    end
     
+    KMX = KMX(:,2:end); % remove 0-d points
     tclusters = kmeans(KMX, K); % topological clusters
     
     for i = 1:k
