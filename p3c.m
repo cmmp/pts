@@ -1,4 +1,4 @@
-function J = p3c(X, sup, topo, K)
+function J = p3c(X, sup, topo, K, minsuprt)
 % p3c-based algorithm
 % CALL: assigns = p3c(X, sup)
 %
@@ -14,10 +14,10 @@ function J = p3c(X, sup, topo, K)
     % step 1 - identify relevant sections in attributes
     S = findSections(X);
     % step 2 - find p-signatures with p = 2
-    [P, A] = findPsignatures(X, S);
+    [P, A] = findPsignatures(X, S, minsuprt);
     % step 3 - make clusters:
 %     [assigns, A] = makeClusters(X, P, A);
-    [assigns, A] = makeClustersEM(X, P, A);
+    assigns = makeClustersEM(X, P, A, minsuprt);
     
 %     % step 4 - run topological analysis?
     if strcmp(topo, 'on')
@@ -30,8 +30,6 @@ end
 
 function plotWindow(X, assigns)
 %    set(0,'DefaultTextFontSize',26);
-  
-
     ngroups = length(unique(assigns));
     %cmap = lines(ngroups);
     %cmap = myrandomjetcmap();
@@ -77,15 +75,14 @@ function topoassigns = topoAnalysis(X, A, assigns, K)
     for i = 1:k
         pts = find(assigns == i);
         npts = length(pts);
+        if npts <= 1
+            continue;
+        end
+        
         Xproj = X(pts, [A(i,1) A(i,2)]);
         
         maxdist = max(pdist(Xproj));
         ems = edu.stanford.math.plex4.metric.impl.EuclideanMetricSpace(Xproj);
-        
-        if npts <= 1
-%             error('got a cluster with 1 or less points!');
-            continue;
-        end
         
         if npts < RATIO
             nLandmarks = npts;
@@ -110,13 +107,15 @@ function topoassigns = topoAnalysis(X, A, assigns, K)
     end
 end
 
-function [assigns, A] = makeClustersEM(X, P, A)
+function [assigns] = makeClustersEM(X, P, A, minsuprt)
 % this function creates the clusters based on the EM algorithm
 % described in the P3C paper along with some mods by us.
     
     n = size(X, 1);
     k = size(A, 1);
     M = zeros(n, k); % fuzzy membership matrix
+    
+    realassigns = zeros(n,1);
     
     S = containers.Map('KeyType', 'int64', 'ValueType', 'any'); %  covariances matrices map
     SI = containers.Map('KeyType', 'int64', 'ValueType', 'any'); %  inverse covariances matrices map
@@ -128,7 +127,7 @@ function [assigns, A] = makeClustersEM(X, P, A)
         pi = (X(:,ai) >= P(i,1)) & (X(:,ai) <= P(i,2));
         pj = (X(:,aj) >= P(i,3)) & (X(:,aj) <= P(i,4));
         pmix = pi & pj;
-%         pmix = assigns == i;
+        M(:,i) = pmix;
         Xsub = X(pmix, [ai aj]);
         
         S(i) = cov(Xsub);
@@ -136,9 +135,21 @@ function [assigns, A] = makeClustersEM(X, P, A)
         C(i,:) = mean(Xsub);
     end
     
+    % remove the points that do not belong to any p-signature.
+    % we just regard them as noise.
+    
+    Msum = sum(M,2);
+    
+    noise = Msum == 0;
+    
+    X = X(~noise,:);
+    M = M(~noise,:);
+    n = size(X, 1);
+    
     % initialize matrix M by assigning each point to the 'closest'
     % cluster core in terms of mahalanobis distances to means of support
     % sets of cluster cores
+    M(:) = 0;
     
     for i = 1:n
         minDist = inf; bestJ = -1;
@@ -191,7 +202,13 @@ function [assigns, A] = makeClustersEM(X, P, A)
                 ai = A(j,1); aj = A(j,2);
                 x = X(i, [ai aj]);
                 mu = C(j,:);
-                pjs(j) = mvnpdf(x, mu, S(j)) * alphas(j); % just avoid some numerical issues...
+                if sum(M(:,j) ~= 0) < 10
+                    % too few points for this cluster.. 
+                    % cov will bork, i.e., not positive definite.
+                    pjs(j) = 0;
+                else
+                    pjs(j) = mvnpdf(x, mu, S(j)) * alphas(j);
+                end
             end
             M(i,:) = pjs ./ sum(pjs); % memberships for the i-th point
         end
@@ -232,85 +249,18 @@ function [assigns, A] = makeClustersEM(X, P, A)
         assigns(i) = idx;
     end
     
-end
-
-
-function [assigns, B] = makeClusters(X, P, A)
-    [N, ~] = size(X);
-    assigns = zeros(N,1);
-    MINPTS = 10;
-    K = 0;
-    B = zeros(size(A,1) * 10, 2);
-
-    % We have to solve a problem here. Some points may actually belong
-    % to more than one p-signature, i.e., they may be identified as
-    % relevant for example in p-signature (S_1,S_2) AND (S_1, S_3).
-    %
-    % We need a way to sort out to which p-signature that point will 
-    % belong so we can later run dbscan and split even more incorrectly
-    % merged clusters.
-    %
-    % Our method computes the squared euclidean distance to the centroid
-    % of the support set of each p-signature. The point is assigned
-    % to the p-signature that it is closest to.
-
-    marked = zeros(N, 1);
-    dists = ones(N,1) * inf;
-    tempassigns = ones(N,1) * -1; % temporary hard assignments of points to p-signatures
+    realassigns(~noise) = assigns;
+    assigns = realassigns;
     
+    % now mark as noise all points that belong to clusters with less
+    % than minsuprt.
     for i = 1:size(A,1)
-        ai = A(i,1); aj = A(i,2);
-        pi = (X(:,ai) >= P(i,1)) & (X(:,ai) <= P(i,2));
-        pj = (X(:,aj) >= P(i,3)) & (X(:,aj) <= P(i,4));
-        pmix = pi & pj;
-
-        Xsub = X(pmix, [ai aj]);
-
-        centroid = mean(Xsub);
-        alreadymarked = marked & pmix; % points that are already marked and also in this p-signature
-        notmarked = ~marked & pmix; % points not yet marked and in this p-signature
-        
-        % just compute to the whole window so we can work later
-        % using vector operations...
-        pdists = sum((X(:, [ai aj]) - repmat(centroid,N,1)) .^2,2);
-        
-        % take care of points not yet marked:
-        marked(notmarked) = 1;
-        dists(notmarked) = pdists(notmarked);
-        tempassigns(notmarked) = i;
-        
-        % for the marked points, check if we are closer. if
-        % we are, then assign them to this temporary cluster
-        closer = (dists > pdists) & alreadymarked;
-        dists(closer) = pdists(closer);
-        tempassigns(closer) = i;
-    end
-   
-    q = 1;
-    for i = 1:size(A,1)
-        ai = A(i,1); aj = A(i,2);
-%         pi = (X(:,ai) >= P(i,1)) & (X(:,ai) <= P(i,2));
-%         pj = (X(:,aj) >= P(i,3)) & (X(:,aj) <= P(i,4));
-%         pmix = find(pi & pj);
-        pmix = find(tempassigns == i);
-        if isempty(pmix)
-            continue;
+        spt = assigns == i;
+        if sum(spt) < minsuprt
+            assigns(spt) = 0;
         end
-        % now use dbscan on pmix to separate any clusters that might
-        % have been erroneously merged
-        Xsub = X(pmix, [ai aj]);
-        Eps = epsestimate(Xsub, MINPTS);
-        [class, ~] = dbscan(Xsub, MINPTS, Eps);
-        class(class == -1) = 0; % noise is 0 to me
-        idx = find(class ~= 0);
-        class(idx) = class(idx) + K;
-        uclass = length(unique(class(class ~= 0)));
-        B(q:(q+uclass-1),:) = repmat(A(i,:), uclass, 1);
-        q = q + uclass;
-        K = max(class);
-        assigns(pmix) = class;
     end
-    B = B(B(:,1) > 0,:); % remove unused spaces
+    
 end
 
 % find p-signatures with p = 2
@@ -318,12 +268,12 @@ end
 % S - map from attributes to sections
 % P - p-signatures matrix
 % A - p-signatures attributes matrix
-function [P, A] = findPsignatures(X, S)
+function [P, A] = findPsignatures(X, S, minsuprt)
     d = size(X, 2); %dimensionality
     P = zeros(d * d * 10, 4); % [lower_1 upper_1 lower_2 upper_2 ; ...]
     A = zeros(d * d * 10, 2); % [att_1 att_2 ; ...]
     nused = 0; % number of used combinations
-    threshold = 1e-20; % threshold for poisson acceptance
+    threshold = 1e-10; % threshold for poisson acceptance
     
     for i = 1:(d - 1)
         for j = (i+1):d
@@ -346,7 +296,7 @@ function [P, A] = findPsignatures(X, S)
                     ESupp = SuppS * width; % expected support of R = (S U S') / S
                     pd = makedist('Poisson', 'lambda', ESupp);
                     prob = pdf(pd, ObsS);
-                    if ObsS > ESupp && prob < threshold
+                    if ObsS > minsuprt && ObsS > ESupp && prob < threshold
                         % found a cluster core
                         nused = nused + 1;
                         P(nused, 1:2) = Sik;

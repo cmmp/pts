@@ -1,4 +1,4 @@
-function Q = p3cstream(X, sup, wsize, K)
+function Q = p3cstream(X, sup, wsize, K, minsuprt)
 % Streaming P3C-based algorithm
 % Q = p3cstream(X, sup)
 %
@@ -7,6 +7,7 @@ function Q = p3cstream(X, sup, wsize, K)
 % sup - array of m elements containing numeric supervision
 % wsize - window size
 % K - how many final topological clusters are desired
+% minsuprt - minimum number of points to consider a psignature relevant.
 %
 % RETURN:
 % Q - array of m elements as measured according to Jaccard evaluation
@@ -26,7 +27,7 @@ function Q = p3cstream(X, sup, wsize, K)
     j = 1;
     for i = 1:wsize:N
         slice = i:(i+wsize-1);
-        Q(j) = p3c(X(slice,:), sup(slice), 'on', K);
+        Q(j) = p3c(X(slice,:), sup(slice), 'on', K, minsuprt);
         fprintf('Got Jaccard = %.2f for window [%d:%d/%d]\n', ...
             Q(j), i, i + wsize - 1, N);
         j = j + 1;
