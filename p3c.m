@@ -51,14 +51,6 @@ function plotWindow(X, assigns)
 end
 
 function topoassigns = topoAnalysis(X, A, assigns, K)
-
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    % DO NOT MESS WITH ANY CONSTANTS IN HERE FOR THE LOVE OF ALL.
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-    %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-    % constants:
     
 	% Constant for topological analysis, maximum dimension */
 	MAX_D = 3;
@@ -180,6 +172,7 @@ function [assigns] = makeClustersEM(X, P, A, minsuprt)
         Xsub = X(logical(M(:,i)),[ai aj]);
         if(size(Xsub,1) == 0)
             error('got no points for this cluster!!');
+%             continue;
         end
         C(i,:) = mean(Xsub);
         S(i) = cov(Xsub); 
