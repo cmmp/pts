@@ -171,8 +171,8 @@ function [assigns] = makeClustersEM(X, P, A, minsuprt)
         ai = A(i,1); aj = A(i,2);
         Xsub = X(logical(M(:,i)),[ai aj]);
         if(size(Xsub,1) == 0)
-            error('got no points for this cluster!!');
-%             continue;
+            %error('got no points for this cluster!!');
+             continue;
         end
         C(i,:) = mean(Xsub);
         S(i) = cov(Xsub); 
