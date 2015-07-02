@@ -31,7 +31,7 @@ function Q = p3cstream(X, sup, wsize, K, minsuprt)
         Q(j) = p3c(X(slice,:), sup(slice), 'on', K, minsuprt);
         toc
         memory
-        fprintf('Got Jaccard = %.2f for window [%d:%d/%d]\n', ...
+        fprintf('Got ARI = %.2f for window [%d:%d/%d]\n', ...
             Q(j), i, i + wsize - 1, N);
         j = j + 1;
     end 

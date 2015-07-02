@@ -1,4 +1,6 @@
+
 function J = p3c(X, sup, topo, K, minsuprt)
+load_javaplex;
 % p3c-based algorithm
 % CALL: assigns = p3c(X, sup)
 %
@@ -24,7 +26,8 @@ function J = p3c(X, sup, topo, K, minsuprt)
         assigns = topoAnalysis(X, A, assigns, K);
     end
     % compute jaccard:
-    J = jaccard(assigns, sup);
+    %J = jaccard(assigns, sup);
+    J = MyUtils.computeAdjustedRandIndex(int32(assigns), int32(sup));
 %     clf(); plotWindow(X, assigns);
 end
 
