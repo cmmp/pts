@@ -1,8 +1,8 @@
 
-function J = p3c(X, sup, topo, K, minsuprt)
+function J = ptsrun(X, sup, topo, K, minsuprt, maxiters, ratio, divisions)
 load_javaplex;
-% p3c-based algorithm
-% CALL: assigns = p3c(X, sup)
+% Based on some parts of P3C
+% CALL: assigns = pts(X, sup)
 %
 % PARAMETERS:
 % X - (m,n) with m instances and n variables input matrix
@@ -19,11 +19,11 @@ load_javaplex;
     [P, A] = findPsignatures(X, S, minsuprt);
     % step 3 - make clusters:
 %     [assigns, A] = makeClusters(X, P, A);
-    assigns = makeClustersEM(X, P, A, minsuprt);
+    assigns = makeClustersEM(X, P, A, minsuprt, maxiters);
     
 %     % step 4 - run topological analysis?
     if strcmp(topo, 'on')
-        assigns = topoAnalysis(X, A, assigns, K);
+        assigns = topoAnalysis(X, A, assigns, K, ratio, divisions);
     end
     % compute jaccard:
     %J = jaccard(assigns, sup);
@@ -53,14 +53,15 @@ function plotWindow(X, assigns)
     gscatter(Xsub(:,3),Xsub(:,4), assigns, cmap, [], PSIZE, 'on'); xlabel('3'); ylabel('4');
 end
 
-function topoassigns = topoAnalysis(X, A, assigns, K)
+function topoassigns = topoAnalysis(X, A, assigns, K, ratio, divisions)
     
 	% Constant for topological analysis, maximum dimension */
 	MAX_D = 3;
+    
 	% Ratio for selection of landmarks -> 1 landmark : ratio points */
-	RATIO = 10;
+	
 	% Number of divisions for filtration analysis */
-	DIVISIONS = 1000;
+	
 
     k = size(A,1); % number of actual clusters
     KMX = zeros(k, MAX_D); % kmeans input matrix
@@ -80,14 +81,14 @@ function topoassigns = topoAnalysis(X, A, assigns, K)
         maxdist = max(pdist(Xproj));
         ems = edu.stanford.math.plex4.metric.impl.EuclideanMetricSpace(Xproj);
         
-        if npts < RATIO
+        if npts < ratio
             nLandmarks = npts;
         else
-            nLandmarks = round(npts / RATIO);
+            nLandmarks = round(npts / ratio);
         end
         
         maxmin = edu.stanford.math.plex4.metric.landmark.MaxMinLandmarkSelector(ems, nLandmarks);
-        lt = edu.stanford.math.plex4.streams.impl.LazyWitnessStream(ems, maxmin, MAX_D, maxdist, 0, DIVISIONS);
+        lt = edu.stanford.math.plex4.streams.impl.LazyWitnessStream(ems, maxmin, MAX_D, maxdist, 0, divisions);
         lt.finalizeStream();
         persistence = edu.stanford.math.plex4.api.Plex4.getModularSimplicialAlgorithm(MAX_D, 2);
         bc = persistence.computeIntervals(lt);
@@ -107,7 +108,7 @@ function topoassigns = topoAnalysis(X, A, assigns, K)
     end
 end
 
-function [assigns] = makeClustersEM(X, P, A, minsuprt)
+function [assigns] = makeClustersEM(X, P, A, minsuprt, maxiters)
 % this function creates the clusters based on the EM algorithm
 % described in the P3C paper along with some mods by us.
     
@@ -182,11 +183,11 @@ function [assigns] = makeClustersEM(X, P, A, minsuprt)
     end
         
     % run EM to approximate M
-    iters = 1; MAXITERS = 2;
+    iters = 1;
     OLDC = C; % old centroids matrix
     EPS = 1e-2;
     
-    while iters <= MAXITERS
+    while iters <= maxiters
         
 %         fprintf('on iter %d of EM...\n', iters);
 
@@ -203,7 +204,7 @@ function [assigns] = makeClustersEM(X, P, A, minsuprt)
                 ai = A(j,1); aj = A(j,2);
                 x = X(i, [ai aj]);
                 mu = C(j,:);
-                if sum(M(:,j) ~= 0) < 10
+                if sum(M(:,j) > 1e-4) < 10
                     % too few points for this cluster.. 
                     % cov will bork, i.e., not positive definite.
                     pjs(j) = 0;
