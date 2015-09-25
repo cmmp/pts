@@ -19,11 +19,73 @@ load_javaplex;
     [P, A] = findPsignatures(X, S, minsuprt);
     % step 3 - make clusters:
 %     [assigns, A] = makeClusters(X, P, A);
-    assigns = makeClustersEM(X, P, A, minsuprt, maxiters);
+  %  assigns = makeClustersEM(X, P, A, minsuprt, maxiters);
+  
+   % select the unique relevant dimensions combinations:
+    Auniq = unique(A, 'rows');
+    
+    assigns = zeros(size(X,1), 1);
+    
+    NBREAKS = 35; % number of breaks for grid segmentation
+    MINPTS = 50; % minimum number of points for a cluster
+    MAXVAR = 30; % maximum variance over a dimension
+    
+    % get clusters on those dimensions:
+    clcount = 0;
+    Afound = zeros(100,2); % 100 should be enough...
+    nused = 0;
+    
+    for i = 1:size(Auniq,1)
+        ai = Auniq(i,1); aj = Auniq(i,2);
+        lbls = gridseg.GridSeg.gridseg(X(:,[ai aj]), NBREAKS, MINPTS);
+        
+        % remove clusters that have big variance in one of the dimensions,
+        % as those tend to be the "shadows" of real clusters over one of
+        % the dimensions. they create "fake" clusters when one of those
+        % dimensions is combined with a noise dimension.
+        for j = unique(lbls)'
+            if j == 0
+                continue;
+            end
+            Xs = X(lbls == j, [ai aj]);
+            vs = var(Xs, 1);
+            if any(vs >= MAXVAR)
+                lbls(lbls == j) = 0; % mark this cluster as noise
+            end
+        end
+        
+        for j = unique(lbls)'
+            % repeat the relevant dimensions for each cluster found on
+            % ai,aj
+            if j == 0
+                continue;
+            end
+            Afound(nused+1,:) = Auniq(i,:);
+            nused = nused + 1;
+        end
+        
+%         gscatter(X(:,ai), X(:,aj), lbls);
+        
+        lbls(lbls > 0) = lbls(lbls > 0) + clcount;
+        assigns(assigns == 0 & lbls > 0) = lbls(assigns == 0 & lbls > 0);
+        clcount = max(assigns);
+    end
+    
+    Afound = Afound(1:nused,:);
+    
+    % normalize cluster labels:
+    cl = 1;
+    for j = unique(assigns)'
+        if (j == 0)
+            continue;
+        end
+        assigns(assigns == j) = cl;
+        cl = cl + 1;
+    end
     
 %     % step 4 - run topological analysis?
     if strcmp(topo, 'on')
-        assigns = topoAnalysis(X, A, assigns, K, ratio, divisions);
+        assigns = topoAnalysis(X, Afound, assigns, K, ratio, divisions);
     end
     % compute jaccard:
     %J = jaccard(assigns, sup);

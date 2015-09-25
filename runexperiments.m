@@ -1,4 +1,7 @@
 load_javaplex
+
+javaaddpath('C:\Users\Cássio\workspace\gridseg\target\gridseg-0.0.1-SNAPSHOT-jar-with-dependencies.jar');
+
 load 'C:\Users\Cássio\workspace\subspacestream\dados\D8\subspace_stream.mat'
 % load 'C:\Users\Cássio\Dropbox\workspace\subspacestream\dados\D16\subspace_stream.mat'
 %load 'C:\Users\Cássio\Dropbox\workspace\subspacestream\dados\D32\subspace_stream.mat'
